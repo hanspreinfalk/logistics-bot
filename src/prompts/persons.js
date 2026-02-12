@@ -18,7 +18,10 @@ Company: ${companyName}
 Person (full name): ${fullName ?? 'Unknown'}
 Position/title from our list: ${position ?? '(none)'}
 
-Position rule: You will return a "position" field in your response. Only include the position if it indicates high decision-making power (e.g. CEO, C-level, Founder, Co-Founder, VP, Director, Head of, Managing Director). If the position is not relevant (e.g. mid-level, specialist, coordinator, analyst, manager without C-level), leave position empty (empty string). When in doubt, skip it.
+Position rule: You will return a "position" field in your response.
+- INCLUDE only if the position indicates high decision-making power: CEO, COO, CFO, CTO, other C-level; Founder, Co-Founder; Executive VP, Managing Director; VP or Director of Operations, Supply Chain, Logistics, or general business (not sales/marketing); Head of company or core operations.
+- EXCLUDE and leave position empty: any marketing-related role (e.g. Marketing VP, Marketing Director, Chief Marketing Officer, Sales Officer, Sales VP, Head of Sales/Marketing); Business Development Manager or similar BD roles; mid-level, specialist, coordinator, analyst, or manager without C-level/executive scope.
+When in doubt, leave position empty.
 
 Then write a single short message that:
 
@@ -30,7 +33,7 @@ Then write a single short message that:
 You must return three things in your structured response:
 - message: the outbound message text (one short block of 3–4 sentences).
 - linkedin_url: the person's LinkedIn profile URL (found via web search; must be a valid LinkedIn URL).
-- position: the person's position/title only if it indicates high decision-making power; otherwise leave empty string.
+- position: the person's position/title only if it is in the INCLUDE list above (e.g. CEO, COO, Managing Director, Executive VP); leave empty for marketing, sales, business development, or non-executive roles.
 
 Keep the tone professional, concise, and genuine.`;
 }
