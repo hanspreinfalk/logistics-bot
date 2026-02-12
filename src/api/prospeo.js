@@ -127,8 +127,7 @@ async function fetchPersonsAndSaveCsv(companyName, outputDir) {
 
   const escapeCsv = (v) => {
     const s = String(v ?? '');
-    if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`;
-    return s;
+    return `"${s.replace(/"/g, '""')}"`;
   };
   const csvHeaders = ['company_name', 'full_name', 'country', 'email', 'mobile', 'linkedin_url', 'current_job_title'];
   const csv = [
