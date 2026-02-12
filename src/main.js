@@ -7,8 +7,10 @@ import { selectDecisionMaker } from './api/bot.js';
 
 const CSV_HEADERS = ['company_name', 'full_name', 'country', 'email', 'mobile', 'linkedin_url', 'current_job_title'];
 
-function escapeCsv(v) {
-  return String(v ?? '');
+function csvCell(h, v) {
+  const s = String(v ?? '');
+  if (h === 'current_job_title') return `"${s.replace(/"/g, '""')}"`;
+  return s;
 }
 
 function toFilteredRow(companyName, person) {
@@ -80,7 +82,7 @@ async function main() {
     }
   }
 
-  const newRowsCsv = filteredRows.map((row) => CSV_HEADERS.map((h) => escapeCsv(row[h])).join(',')).join('\n');
+  const newRowsCsv = filteredRows.map((row) => CSV_HEADERS.map((h) => csvCell(h, row[h])).join(',')).join('\n');
   let existingRowsCsv = '';
   if (fs.existsSync(filteredPath)) {
     const content = fs.readFileSync(filteredPath, 'utf-8');
