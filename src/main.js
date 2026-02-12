@@ -109,6 +109,19 @@ function isPersonAlreadyInFiltered(companyName, fullName, entries) {
   );
 }
 
+/** Append a single persons-mode row to filtered.csv immediately (creates file with header if needed). */
+function appendPersonRowToFilteredCsv(filteredPath, row) {
+  const line = PERSONS_CSV_HEADERS.map((h) => personsCsvCell(h, row[h])).join(',');
+  fs.mkdirSync(path.dirname(filteredPath), { recursive: true });
+  if (!fs.existsSync(filteredPath)) {
+    const header = PERSONS_CSV_HEADERS.join(',');
+    fs.writeFileSync(filteredPath, header + '\n', 'utf-8');
+    fs.appendFileSync(filteredPath, line + '\n', 'utf-8');
+  } else {
+    fs.appendFileSync(filteredPath, line + '\n', 'utf-8');
+  }
+}
+
 async function main() {
   const dataDir = path.join(process.cwd(), 'data');
   const filteredPath =
@@ -199,8 +212,10 @@ async function main() {
           linkedin_url: linkedinUrl,
           outbound_message: result.message ?? '',
         };
+        appendPersonRowToFilteredCsv(filteredPath, row);
+        alreadyInFiltered.push({ companyName, fullName });
         filteredRows.push(row);
-        console.log(`${companyName} / ${fullName} → outbound message + LinkedIn URL written`);
+        console.log(`${companyName} / ${fullName} → outbound message + LinkedIn URL written (saved to filtered.csv)`);
       } catch (err) {
         console.log(`${companyName} / ${fullName}: error – ${err.message}`);
       }
@@ -210,28 +225,17 @@ async function main() {
   const isPersonsMode = INPUT_MODE === 'persons';
   const headers = isPersonsMode ? PERSONS_CSV_HEADERS : CSV_HEADERS;
   const cellFn = isPersonsMode ? personsCsvCell : csvCell;
-  const newRowsCsv = filteredRows.map((row) => headers.map((h) => cellFn(h, row[h])).join(',')).join('\n');
 
-  let existingRowsCsv = '';
-  if (fs.existsSync(filteredPath)) {
-    const content = fs.readFileSync(filteredPath, 'utf-8');
-    const lines = content.split(/\r?\n/).filter((line) => line.trim());
-    if (lines.length > 1) {
-      const dataLines = lines.slice(1);
-      if (isPersonsMode) {
-        existingRowsCsv = dataLines
-          .map((line) => {
-            const parts = parseCsvLine(line);
-            const company_name = parts[0] ?? '';
-            const full_name = parts[1] ?? '';
-            const position = parts.length >= 5 ? (parts[2] ?? '') : '';
-            const linkedin_url = parts.length >= 5 ? (parts[3] ?? '') : (parts.length >= 4 ? (parts[2] ?? '') : (parts[5] ?? ''));
-            const outbound_message = parts.length >= 5 ? (parts[4] ?? '') : (parts.length >= 4 ? (parts[3] ?? '') : (parts[7] ?? ''));
-            const row = { company_name, full_name, position, linkedin_url, outbound_message };
-            return PERSONS_CSV_HEADERS.map((h) => personsCsvCell(h, row[h])).join(',');
-          })
-          .join('\n');
-      } else {
+  if (isPersonsMode) {
+    console.log(`\nDone. ${filteredRows.length} person(s) saved to ${path.relative(process.cwd(), filteredPath)} (written after each one).`);
+  } else {
+    const newRowsCsv = filteredRows.map((row) => headers.map((h) => cellFn(h, row[h])).join(',')).join('\n');
+    let existingRowsCsv = '';
+    if (fs.existsSync(filteredPath)) {
+      const content = fs.readFileSync(filteredPath, 'utf-8');
+      const lines = content.split(/\r?\n/).filter((line) => line.trim());
+      if (lines.length > 1) {
+        const dataLines = lines.slice(1);
         const header = lines[0];
         const hasOutboundColumn = header.includes('outbound_message');
         existingRowsCsv = hasOutboundColumn
@@ -239,17 +243,16 @@ async function main() {
           : dataLines.map((line) => `${line},""`).join('\n');
       }
     }
+    fs.mkdirSync(path.dirname(filteredPath), { recursive: true });
+    const csv =
+      headers.join(',') +
+      '\n' +
+      existingRowsCsv +
+      (existingRowsCsv ? '\n' : '') +
+      newRowsCsv;
+    fs.writeFileSync(filteredPath, csv, 'utf-8');
+    console.log(`\nSaved ${filteredRows.length} decision makers to ${path.relative(process.cwd(), filteredPath)}${existingRowsCsv ? ' (appended)' : ''}`);
   }
-
-  fs.mkdirSync(path.dirname(filteredPath), { recursive: true });
-  const csv =
-    headers.join(',') +
-    '\n' +
-    existingRowsCsv +
-    (existingRowsCsv ? '\n' : '') +
-    newRowsCsv;
-  fs.writeFileSync(filteredPath, csv, 'utf-8');
-  console.log(`\nSaved ${filteredRows.length} ${isPersonsMode ? 'persons' : 'decision makers'} to ${path.relative(process.cwd(), filteredPath)}${existingRowsCsv ? ' (appended)' : ''}`);
 }
 
 main();
