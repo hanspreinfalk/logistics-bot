@@ -6,7 +6,7 @@ import { fetchPersonsAndSaveCsv, enrichPerson, findPersonByCompanyAndName } from
 import { selectDecisionMaker, writeOutboundMessage } from './api/bot.js';
 
 /** 'companies' = read from data/companies.csv and pick decision maker per company; 'persons' = read from persons/all.csv and find each person by company + full name */
-const INPUT_MODE = 'companies';
+const INPUT_MODE = 'persons';
 
 const CSV_HEADERS = ['company_name', 'full_name', 'country', 'email', 'mobile', 'linkedin_url', 'current_job_title', 'outbound_message'];
 
@@ -39,17 +39,32 @@ function personKey(companyName, fullName) {
   return `${(companyName ?? '').trim()}|${(fullName ?? '').trim()}`;
 }
 
-/** Returns a Set of keys 'company_name|full_name' for rows already in filtered.csv. Used in both modes to skip when that company+person pair exists. */
+const norm = (s) => (s ?? '').toLowerCase().trim();
+
+/** Names match if exact or one is a prefix of the other (e.g. "Juan Pablo" matches "Juan Pablo Narchi"). */
+function namesMatch(nameA, nameB) {
+  const a = norm(nameA);
+  const b = norm(nameB);
+  return a === b || b.startsWith(a) || a.startsWith(b);
+}
+
+/** Returns rows already in filtered.csv as [{ companyName, fullName }]. Used with isPersonAlreadyInFiltered for non-literal skip check. */
 function getAlreadyInFiltered(filteredPath) {
-  if (!fs.existsSync(filteredPath)) return new Set();
+  if (!fs.existsSync(filteredPath)) return [];
   const content = fs.readFileSync(filteredPath, 'utf-8');
   const lines = content.split(/\r?\n/).filter((line) => line.trim());
-  if (lines.length <= 1) return new Set();
-  return new Set(
-    lines.slice(1).map((line) => {
-      const parts = line.split(',').map((p) => p.replace(/^"|"$/g, '').replace(/""/g, '"').trim());
-      return personKey(parts[0], parts[1]);
-    }),
+  if (lines.length <= 1) return [];
+  return lines.slice(1).map((line) => {
+    const parts = line.split(',').map((p) => p.replace(/^"|"$/g, '').replace(/""/g, '"').trim());
+    return { companyName: parts[0] ?? '', fullName: parts[1] ?? '' };
+  });
+}
+
+/** True if this company+person is already in filtered (company match + name match, with partial name allowed). */
+function isPersonAlreadyInFiltered(companyName, fullName, entries) {
+  const nCompany = norm(companyName);
+  return entries.some(
+    (e) => norm(e.companyName) === nCompany && namesMatch(e.fullName, fullName),
   );
 }
 
@@ -66,7 +81,7 @@ async function main() {
   if (INPUT_MODE === 'companies') {
     const companyNames = getCompanies();
     console.log('Input: companies.csv →', companyNames);
-    if (alreadyInFiltered.size) console.log('Already in filtered.csv:', alreadyInFiltered.size, 'company+person entries');
+    if (alreadyInFiltered.length) console.log('Already in filtered.csv:', alreadyInFiltered.length, 'company+person entries');
 
     for (const companyName of companyNames) {
       try {
@@ -86,7 +101,7 @@ async function main() {
           continue;
         }
         const selectedPerson = persons.find((p) => p.person_id === decisionMakerId);
-        if (selectedPerson && alreadyInFiltered.has(personKey(companyName, selectedPerson.full_name))) {
+        if (selectedPerson && isPersonAlreadyInFiltered(companyName, selectedPerson.full_name, alreadyInFiltered)) {
           console.log(`${companyName} / ${selectedPerson.full_name}: already in filtered.csv, skipping`);
           continue;
         }
@@ -111,11 +126,10 @@ async function main() {
   } else {
     const persons = getPersonsFromAll();
     console.log('Input: persons/all.csv →', persons.length, 'persons');
-    if (alreadyInFiltered.size) console.log('Already in filtered.csv:', alreadyInFiltered.size, 'entries');
+    if (alreadyInFiltered.length) console.log('Already in filtered.csv:', alreadyInFiltered.length, 'entries');
 
     for (const { company_name: companyName, full_name: fullName } of persons) {
-      const key = personKey(companyName, fullName);
-      if (alreadyInFiltered.has(key)) {
+      if (isPersonAlreadyInFiltered(companyName, fullName, alreadyInFiltered)) {
         console.log(`${companyName} / ${fullName}: already in filtered.csv, skipping`);
         continue;
       }
