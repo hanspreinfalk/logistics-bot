@@ -96,31 +96,50 @@ async function enrichPerson(options) {
   return { person: result.person, company: result.company ?? null };
 }
 
+const PERSONS_PER_PAGE = 25;
+const MAX_PERSONS_PER_COMPANY = 200;
+const DELAY_BETWEEN_PAGES_MS = 1500;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * Fetch persons for a company and save to the given output directory as persons.csv
+ * Fetches up to MAX_PERSONS_PER_COMPANY (200) persons via pagination (25 per page).
  * @param {string} companyName
  * @param {string} outputDir - Full path to folder (e.g. data/Microsoft-2026-02-12T143052)
  * @returns {Promise<{ persons: object[], csvPath: string }>}
  */
 async function fetchPersonsAndSaveCsv(companyName, outputDir) {
-  const filters = { company: { names: { include: [companyName] } } };
-  const personData = await searchPerson(filters, 1);
-  if (personData.error) {
-    throw new Error(personData.filter_error || personData.error_code);
+  const name = companyName.trim();
+  const filters = { company: { names: { include: [name] } } };
+  const persons = [];
+  const maxPages = Math.ceil(MAX_PERSONS_PER_COMPANY / PERSONS_PER_PAGE); // 8 pages for 200
+
+  for (let page = 1; page <= maxPages; page++) {
+    const personData = await searchPerson(filters, page);
+    if (personData.error) {
+      throw new Error(personData.filter_error || personData.error_code);
+    }
+    const results = personData.results ?? [];
+    for (const r of results) {
+      const p = r.person;
+      persons.push({
+        person_id: p?.person_id,
+        company_name: name,
+        full_name: p?.full_name,
+        country: p?.location?.country,
+        email: p?.email?.email,
+        mobile: p?.mobile?.mobile,
+        linkedin_url: p?.linkedin_url,
+        current_job_title: p?.current_job_title,
+      });
+    }
+    if (results.length < PERSONS_PER_PAGE) break;
+    if (persons.length >= MAX_PERSONS_PER_COMPANY) break;
+    if (page < maxPages && results.length > 0) await sleep(DELAY_BETWEEN_PAGES_MS);
   }
-  const persons = (personData.results ?? []).map((r) => {
-    const p = r.person;
-    return {
-      person_id: p?.person_id,
-      company_name: companyName,
-      full_name: p?.full_name,
-      country: p?.location?.country,
-      email: p?.email?.email,
-      mobile: p?.mobile?.mobile,
-      linkedin_url: p?.linkedin_url,
-      current_job_title: p?.current_job_title,
-    };
-  });
 
   fs.mkdirSync(outputDir, { recursive: true });
   const csvPath = path.join(outputDir, 'persons.csv');

@@ -25,6 +25,12 @@ function toFilteredRow(companyName, person) {
   };
 }
 
+const DELAY_BETWEEN_COMPANIES_MS = 2500;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function getCompaniesAlreadyInFiltered(filteredPath) {
   if (!fs.existsSync(filteredPath)) return new Set();
   const content = fs.readFileSync(filteredPath, 'utf-8');
@@ -55,11 +61,12 @@ async function main() {
       continue;
     }
     try {
+      await sleep(DELAY_BETWEEN_COMPANIES_MS);
       const companySlug = companyName.replace(/\s+/g, '-');
       const outputDir = path.join(dataDir, `${companySlug}-${datetime}`);
       const { persons, csvPath } = await fetchPersonsAndSaveCsv(companyName, outputDir);
       if (persons.length === 0) {
-        console.log(`${companyName}: not found`);
+        console.log(`${companyName}: not found (0 persons in Prospeo – try exact name e.g. "Tesla, Inc." or "Prospeo.io" in companies.csv)`);
         continue;
       }
       console.log(`${companyName}: ${persons.length} persons → ${path.relative(process.cwd(), csvPath)}`);
@@ -78,7 +85,7 @@ async function main() {
       filteredRows.push(row);
       console.log(`${companyName}: decision maker ${person?.full_name} → enriched`);
     } catch (err) {
-      console.log(`${companyName}: not found`);
+      console.log(`${companyName}: not found – ${err.message}`);
     }
   }
 
