@@ -17,10 +17,26 @@ const outboundMessageSchema = z.object({
 
 
 async function writeOutboundMessage(info) {
-  const { companyName, person, company } = info;
+  const { companyName, person, company, inputMode } = info;
   const firstName = person?.full_name?.split(/\s+/)[0] || 'there';
   const jobTitle = person?.current_job_title ?? '';
-  const prompt = `You are writing a short, personalized outbound message to a decision maker at a company. Use web search to find something specific and genuine about the company and/or this person (recent news, focus areas, initiatives) so you can capture their attention.
+  const isPersonsStyle = inputMode === 'persons';
+
+  const personsStylePrompt = `You are writing a short, casual outbound message to this person after meeting them at Manifest.
+
+Company: ${companyName}
+Person: ${person?.full_name ?? 'Unknown'}
+Job title: ${jobTitle}
+
+Write a single short message in this exact style (match the structure and tone):
+
+1. First sentence: "Hey I saw you were in Manifest too [First name]!" — use their actual first name at the end (e.g. "Hey I saw you were in Manifest too Juan Pablo!").
+2. Second sentence: Say you run a company that develops software for 3PL companies and thought it'd be great to connect.
+3. Third sentence: Something like "Always interested in talking shop with fellow founders who've been in that space." — casual, peer-to-peer, no corporate speak.
+
+Three sentences total. Casual and friendly. Output only the message. Call websearch tool if necessary`;
+
+  const companiesStylePrompt = `You are writing a short, personalized outbound message to a decision maker at a company. Use web search to find something specific and genuine about the company and/or this person (recent news, focus areas, initiatives) so you can capture their attention.
 
 Company: ${companyName}
 Person: ${person?.full_name ?? 'Unknown'}
@@ -33,7 +49,9 @@ Search for the company and the person to find one concrete thing you can referen
 2. In one sentence, say you're interested in learning more about what they're doing and mention the specific thing you found (e.g. "because we have several clients in cross-border freight operations" or similar hook tied to their company/role).
 3. In one sentence, briefly introduce the sender: "I've already graduated from MIT with a degree in AI, and now I have a company where we develop software for logistics companies."
 
-Keep the tone professional, concise, and genuine. Do not use bullet points or multiple paragraphs—one short block of 3–4 sentences like the example. Output only the message.`;
+Keep the tone professional, concise, and genuine. Do not use bullet points or multiple paragraphs—one short block of 3–4 sentences like the example. Output only the message. call websearch tool if necessary`;
+
+  const prompt = isPersonsStyle ? personsStylePrompt : companiesStylePrompt;
 
   const { output } = await generateText({
     model: anthropic('claude-sonnet-4-5'),

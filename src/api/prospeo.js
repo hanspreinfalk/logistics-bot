@@ -158,4 +158,37 @@ async function fetchPersonsAndSaveCsv(companyName, outputDir) {
   return { persons, csvPath };
 }
 
-export { searchCompany, searchPerson, enrichPerson, fetchPersonsAndSaveCsv };
+/**
+ * Find one person in Prospeo by company name and full name.
+ * Searches by company, then picks the first result whose full_name matches.
+ * @param {string} companyName
+ * @param {string} fullName
+ * @returns {Promise<{ person_id: string, full_name: string, company_name: string, country?: string, email?: string, mobile?: string, linkedin_url?: string, current_job_title?: string } | null>}
+ */
+async function findPersonByCompanyAndName(companyName, fullName) {
+  const name = companyName.trim();
+  const searchFull = fullName.trim();
+  const filters = { company: { names: { include: [name] } } };
+  const personData = await searchPerson(filters, 1);
+  if (personData.error) throw new Error(personData.filter_error || personData.error_code);
+  const results = personData.results ?? [];
+  const norm = (s) => (s ?? '').toLowerCase().trim();
+  const match = results.find((r) => {
+    const p = r.person;
+    return norm(p?.full_name) === norm(searchFull);
+  });
+  if (!match?.person) return null;
+  const p = match.person;
+  return {
+    person_id: p?.person_id,
+    company_name: name,
+    full_name: p?.full_name,
+    country: p?.location?.country,
+    email: p?.email?.email,
+    mobile: p?.mobile?.mobile,
+    linkedin_url: p?.linkedin_url,
+    current_job_title: p?.current_job_title,
+  };
+}
+
+export { searchCompany, searchPerson, enrichPerson, fetchPersonsAndSaveCsv, findPersonByCompanyAndName };
