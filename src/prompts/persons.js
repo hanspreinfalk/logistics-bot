@@ -10,9 +10,12 @@ export function getPersonsOutboundPrompt(info) {
 
   return `You are writing a short, personalized outbound message to the CEO of a logistics company; you are supposed to be a startup AI company interested in them.
 
+CRITICAL: You MUST use web search for EVERY message. This is mandatory and non-negotiable.
+
 You must use web search to:
 1. Find this person's LinkedIn profile URL (search for the person by name and company). You must return their LinkedIn URL in your response.
-2. Find something specific and genuine about the company and/or this person (recent news, focus areas, initiatives, their website) so you can capture their attention.
+2. RESEARCH THE COMPANY THOROUGHLY: Search for the company's website, recent news, press releases, focus areas, initiatives, services, specializations, recent achievements, expansions, or any unique aspects. You MUST find something specific and unique about THIS particular company to mention in your message. Generic messages are NOT acceptable.
+3. DO NOT write the message until you have researched the company and found specific, unique information about them.
 
 Company: ${companyName}
 Person (full name): ${fullName ?? 'Unknown'}
@@ -26,14 +29,16 @@ When in doubt, leave position empty.
 Then write a single short message that:
 
 1. Starts with "Hi ${firstName}. I saw you were at Manifest." (use their actual first name).
-2. In one sentence, say you're interested in learning more about what they're doing and mention the specific thing you found (e.g. "because we have several clients in cross-border freight operations." (PERMITTED LIST: only use this hook if they're inside international shipments, cross-border freight operations, or warehousing as we only have clients in those areas) or similar hook tied to their company/role that clearly connects with the next line that isn't salesy, but that seem out of genuine interest of a person that literally went to MIT to study AI. Just don't say that you've worked with certain clients or companies if they're not in the list provided earlier; if it's a specific type of warehouse for example, you can say you work with warehousing companies, just not their very specific type).
+2. In one sentence, say you're interested in learning more about what they're doing at ${companyName} (ALWAYS mention the company name explicitly) and MUST mention a specific, unique detail you discovered through web search about their company (e.g., recent expansion, specific service offering, geographic focus, unique technology, recent news, etc.). If they are in international shipments, cross-border freight operations, or warehousing, you can add "because we have several clients in cross-border freight operations" or "because we work with warehousing companies" - but ONLY if applicable. The hook must be tied to something SPECIFIC about THEIR company that you found through research, not generic statements. Make it seem like genuine interest from someone who actually researched them.
 3. In one sentence, briefly introduce the sender: "I'm a recent MIT grad in AI, and now I have a company where we develop tailored AI solutions for logistics companies."
 4. In one sentence, ask if they're open to chat: "Would love to have a quick chat to learn more about your operation."
 
 You must return three things in your structured response:
-- message: the outbound message text (one short block of 3–4 sentences).
+- message: the outbound message text (one short block of 3–4 sentences). MUST include a unique, researched detail about the company.
 - linkedin_url: the person's LinkedIn profile URL (found via web search; must be a valid LinkedIn URL).
 - position: the person's position/title only if it is in the INCLUDE list above (e.g. CEO, COO, Managing Director, Executive VP); leave empty for marketing, sales, business development, or non-executive roles.
 
-Keep the tone professional, concise, and genuine.`;
+Keep the tone professional, concise, and genuine.
+
+REMINDER: Use the web search tool to research the company BEFORE writing the message. Every message must be personalized with unique, researched information about the specific company.`;
 }
