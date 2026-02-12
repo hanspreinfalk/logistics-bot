@@ -34,7 +34,7 @@ function sleep(ms) {
 function getCompaniesAlreadyInFiltered(filteredPath) {
   if (!fs.existsSync(filteredPath)) return new Set();
   const content = fs.readFileSync(filteredPath, 'utf-8');
-  const lines = content.split('\n').filter((line) => line.trim());
+  const lines = content.split(/\r?\n/).filter((line) => line.trim());
   if (lines.length <= 1) return new Set();
   const names = lines.slice(1).map((line) => {
     const first = line.split(',')[0] ?? '';
@@ -93,9 +93,10 @@ async function main() {
   let existingRowsCsv = '';
   if (fs.existsSync(filteredPath)) {
     const content = fs.readFileSync(filteredPath, 'utf-8');
-    const lines = content.split('\n').filter((line) => line.trim());
+    const lines = content.split(/\r?\n/).filter((line) => line.trim());
     if (lines.length > 1) existingRowsCsv = lines.slice(1).join('\n');
   }
+  fs.mkdirSync(dataDir, { recursive: true });
   const csv =
     CSV_HEADERS.join(',') +
     '\n' +
