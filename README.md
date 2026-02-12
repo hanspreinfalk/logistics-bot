@@ -27,16 +27,16 @@ Apple
 
 ### Persons mode (`INPUT_MODE = 'persons'`)
 
-- **Input:** `persons/all.csv` — one row per person: `company_name` and `full_name` (partial names like "Juan Pablo" work; Prospeo match can be "Juan Pablo Narchi").
-- **Flow:** For each row, find that person in Prospeo by company + name → enrich → write casual Manifest-style message ("Hey I saw you were in Manifest too [Name]!...") → append to **`persons/filtered.csv`**.
-- **Output:** `persons/filtered.csv`
+- **Input:** `persons/all.csv` — one row per person: `company_name`, `full_name`, and optional `position` (e.g. job title). Fully AI: no Prospeo; AI finds LinkedIn URL and writes Manifest-style message.
+- **Flow:** For each row, AI uses web search to find the person’s LinkedIn URL and writes the outbound message → append to **`persons/filtered.csv`**.
+- **Output:** `persons/filtered.csv` with columns: `company_name`, `full_name`, `position`, `linkedin_url`, `outbound_message`. The `position` column is taken from `all.csv` (leave empty if you don’t have it).
 
 **`persons/all.csv`** format:
 
 ```csv
-company_name,full_name
-ADL Final Mile,Monte Ohara
-Some 3PL,Juan Pablo
+company_name,full_name,position
+ADL Final Mile,Monte Ohara,Chief Executive Officer
+Some 3PL,Juan Pablo,Cofundador y COO
 ```
 
 ## Run

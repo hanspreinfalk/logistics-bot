@@ -20,6 +20,7 @@ const outboundMessageSchema = z.object({
 const personsOutboundSchema = z.object({
   message: z.string().describe('The outbound message to send to the person'),
   linkedin_url: z.string().describe('The LinkedIn profile URL of the person (found via web search; use web search to find it, must be a valid linkedin.com URL)'),
+  position: z.string().describe('The person\'s position/title only if it indicates high decision-making power (e.g. CEO, C-level, Founder, VP, Director); otherwise empty string'),
 });
 
 async function writeOutboundMessage(info) {
@@ -38,6 +39,7 @@ async function writeOutboundMessage(info) {
     return {
       message: (output?.message ?? '').trim(),
       linkedin_url: (output?.linkedin_url ?? '').trim(),
+      position: (output?.position ?? '').trim(),
     };
   }
 

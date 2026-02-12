@@ -1,11 +1,11 @@
 /**
  * Prompt for outbound messages when INPUT_MODE is 'persons' (Manifest).
  * Fully AI: no Prospeo. Use web search to find LinkedIn URL and write the message.
- * Used in writeOutboundMessage (bot.js). Response schema includes message + linkedin_url.
+ * Response schema: message, linkedin_url, position (position only if relevant).
  */
 
 export function getPersonsOutboundPrompt(info) {
-  const { companyName, fullName } = info;
+  const { companyName, fullName, position } = info;
   const firstName = (fullName ?? '').trim().split(/\s+/)[0] || 'there';
 
   return `You are writing a short, personalized outbound message to the CEO of a logistics company; you are supposed to be a startup AI company interested in them.
@@ -16,6 +16,9 @@ You must use web search to:
 
 Company: ${companyName}
 Person (full name): ${fullName ?? 'Unknown'}
+Position/title from our list: ${position ?? '(none)'}
+
+Position rule: You will return a "position" field in your response. Only include the position if it indicates high decision-making power (e.g. CEO, C-level, Founder, Co-Founder, VP, Director, Head of, Managing Director). If the position is not relevant (e.g. mid-level, specialist, coordinator, analyst, manager without C-level), leave position empty (empty string). When in doubt, skip it.
 
 Then write a single short message that:
 
@@ -24,9 +27,10 @@ Then write a single short message that:
 3. In one sentence, briefly introduce the sender: "I'm a recent MIT grad in AI, and now I have a company where we develop tailored AI solutions for logistics companies."
 4. In one sentence, ask if they're open to chat: "Would love to have a quick chat to learn more about your operation."
 
-You must return two things in your structured response:
+You must return three things in your structured response:
 - message: the outbound message text (one short block of 3–4 sentences).
 - linkedin_url: the person's LinkedIn profile URL (found via web search; must be a valid LinkedIn URL).
+- position: the person's position/title only if it indicates high decision-making power; otherwise leave empty string.
 
-Keep the tone professional, concise, and genuine. Output only the message and linkedin_url in the required schema.`;
+Keep the tone professional, concise, and genuine.`;
 }

@@ -6,10 +6,10 @@ import { fetchPersonsAndSaveCsv, enrichPerson, findPersonByCompanyAndName } from
 import { selectDecisionMaker, writeOutboundMessage } from './api/bot.js';
 
 /** 'companies' = read from data/companies.csv and pick decision maker per company; 'persons' = read from persons/all.csv, fully AI (no Prospeo), output 4-col filtered */
-const INPUT_MODE = 'companies';
+const INPUT_MODE = 'persons';
 
 const CSV_HEADERS = ['company_name', 'full_name', 'country', 'email', 'mobile', 'linkedin_url', 'current_job_title', 'outbound_message'];
-const PERSONS_CSV_HEADERS = ['company_name', 'full_name', 'linkedin_url', 'outbound_message'];
+const PERSONS_CSV_HEADERS = ['company_name', 'full_name', 'position', 'linkedin_url', 'outbound_message'];
 
 function csvCell(h, v) {
   const s = String(v ?? '');
@@ -19,7 +19,7 @@ function csvCell(h, v) {
 
 function personsCsvCell(h, v) {
   const s = String(v ?? '');
-  if (h === 'outbound_message') return `"${s.replace(/"/g, '""')}"`;
+  if (h === 'outbound_message' || h === 'position') return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
 
@@ -169,7 +169,7 @@ async function main() {
     console.log('Input: persons/all.csv →', persons.length, 'persons (AI only, no Prospeo)');
     if (alreadyInFiltered.length) console.log('Already in filtered.csv:', alreadyInFiltered.length, 'entries');
 
-    for (const { company_name: companyName, full_name: fullName } of persons) {
+    for (const { company_name: companyName, full_name: fullName, position } of persons) {
       if (isPersonAlreadyInFiltered(companyName, fullName, alreadyInFiltered)) {
         console.log(`${companyName} / ${fullName}: already in filtered.csv, skipping`);
         continue;
@@ -179,12 +179,24 @@ async function main() {
         const result = await writeOutboundMessage({
           companyName,
           fullName,
+          position,
           inputMode: INPUT_MODE,
         });
+        const positionToUse = (result.position ?? '').trim();
+        const linkedinUrl = (result.linkedin_url ?? '').trim();
+        if (!positionToUse) {
+          console.log(`${companyName} / ${fullName}: position not relevant (not a high decision maker), skipping – not added to filtered.csv`);
+          continue;
+        }
+        if (!linkedinUrl || !linkedinUrl.includes('linkedin.com')) {
+          console.log(`${companyName} / ${fullName}: LinkedIn URL not found, skipping – not added to filtered.csv`);
+          continue;
+        }
         const row = {
           company_name: companyName,
           full_name: fullName,
-          linkedin_url: result.linkedin_url ?? '',
+          position: positionToUse,
+          linkedin_url: linkedinUrl,
           outbound_message: result.message ?? '',
         };
         filteredRows.push(row);
@@ -212,9 +224,10 @@ async function main() {
             const parts = parseCsvLine(line);
             const company_name = parts[0] ?? '';
             const full_name = parts[1] ?? '';
-            const linkedin_url = parts.length >= 4 ? (parts[2] ?? '') : (parts[5] ?? '');
-            const outbound_message = parts.length >= 4 ? (parts[3] ?? '') : (parts[7] ?? '');
-            const row = { company_name, full_name, linkedin_url, outbound_message };
+            const position = parts.length >= 5 ? (parts[2] ?? '') : '';
+            const linkedin_url = parts.length >= 5 ? (parts[3] ?? '') : (parts.length >= 4 ? (parts[2] ?? '') : (parts[5] ?? ''));
+            const outbound_message = parts.length >= 5 ? (parts[4] ?? '') : (parts.length >= 4 ? (parts[3] ?? '') : (parts[7] ?? ''));
+            const row = { company_name, full_name, position, linkedin_url, outbound_message };
             return PERSONS_CSV_HEADERS.map((h) => personsCsvCell(h, row[h])).join(',');
           })
           .join('\n');

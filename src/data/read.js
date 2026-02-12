@@ -14,9 +14,9 @@ export function getCompanies() {
 }
 
 /**
- * Returns rows from persons/all.csv as an array of { company_name, full_name }.
- * CSV format: company_name,full_name (header on first line).
- * @returns {{ company_name: string, full_name: string }[]}
+ * Returns rows from persons/all.csv as an array of { company_name, full_name, position }.
+ * CSV format: company_name,full_name,position (header on first line; position optional).
+ * @returns {{ company_name: string, full_name: string, position: string }[]}
  */
 export function getPersonsFromAll() {
   const csvPath = path.join(process.cwd(), 'persons', 'all.csv');
@@ -25,6 +25,10 @@ export function getPersonsFromAll() {
   if (lines.length <= 1) return [];
   return lines.slice(1).map((line) => {
     const parts = line.split(',').map((p) => p.replace(/^"|"$/g, '').replace(/""/g, '"').trim());
-    return { company_name: parts[0] ?? '', full_name: parts[1] ?? '' };
+    return {
+      company_name: parts[0] ?? '',
+      full_name: parts[1] ?? '',
+      position: parts[2] ?? '',
+    };
   }).filter((row) => row.company_name && row.full_name);
 }
