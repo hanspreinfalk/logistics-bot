@@ -160,7 +160,7 @@ async function fetchPersonsAndSaveCsv(companyName, outputDir) {
 
 /**
  * Find one person in Prospeo by company name and full name.
- * Searches by company, then picks the first result whose full_name matches.
+ * Searches by company, then picks the first result whose full_name matches (exact or partial: "Juan Pablo" matches "Juan Pablo Narchi").
  * @param {string} companyName
  * @param {string} fullName
  * @returns {Promise<{ person_id: string, full_name: string, company_name: string, country?: string, email?: string, mobile?: string, linkedin_url?: string, current_job_title?: string } | null>}
@@ -173,10 +173,13 @@ async function findPersonByCompanyAndName(companyName, fullName) {
   if (personData.error) throw new Error(personData.filter_error || personData.error_code);
   const results = personData.results ?? [];
   const norm = (s) => (s ?? '').toLowerCase().trim();
-  const match = results.find((r) => {
-    const p = r.person;
-    return norm(p?.full_name) === norm(searchFull);
-  });
+  const searchNorm = norm(searchFull);
+  const match =
+    results.find((r) => norm(r.person?.full_name) === searchNorm) ||
+    results.find((r) => {
+      const prospeoName = norm(r.person?.full_name);
+      return prospeoName.startsWith(searchNorm) || searchNorm.startsWith(prospeoName);
+    });
   if (!match?.person) return null;
   const p = match.person;
   return {
