@@ -5,14 +5,21 @@ import { getCompanies, getPersonsFromAll } from './data/read.js';
 import { fetchPersonsAndSaveCsv, enrichPerson, findPersonByCompanyAndName } from './api/prospeo.js';
 import { selectDecisionMaker, writeOutboundMessage } from './api/bot.js';
 
-/** 'companies' = read from data/companies.csv and pick decision maker per company; 'persons' = read from persons/all.csv and find each person by company + full name */
-const INPUT_MODE = 'persons';
+/** 'companies' = read from data/companies.csv and pick decision maker per company; 'persons' = read from persons/all.csv, fully AI (no Prospeo), output 4-col filtered */
+const INPUT_MODE = 'companies';
 
 const CSV_HEADERS = ['company_name', 'full_name', 'country', 'email', 'mobile', 'linkedin_url', 'current_job_title', 'outbound_message'];
+const PERSONS_CSV_HEADERS = ['company_name', 'full_name', 'linkedin_url', 'outbound_message'];
 
 function csvCell(h, v) {
   const s = String(v ?? '');
   if (h === 'current_job_title' || h === 'outbound_message') return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function personsCsvCell(h, v) {
+  const s = String(v ?? '');
+  if (h === 'outbound_message') return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
 
@@ -41,6 +48,40 @@ function personKey(companyName, fullName) {
 
 const norm = (s) => (s ?? '').toLowerCase().trim();
 
+/** Parse a single CSV line into fields (handles quoted fields with commas). */
+function parseCsvLine(line) {
+  const parts = [];
+  let i = 0;
+  while (i < line.length) {
+    if (line[i] === '"') {
+      let field = '';
+      i++;
+      while (i < line.length) {
+        if (line[i] === '"' && line[i + 1] === '"') {
+          field += '"';
+          i += 2;
+        } else if (line[i] === '"') {
+          i++;
+          break;
+        } else {
+          field += line[i];
+          i++;
+        }
+      }
+      parts.push(field);
+    } else {
+      let field = '';
+      while (i < line.length && line[i] !== ',') {
+        field += line[i];
+        i++;
+      }
+      parts.push(field.trim());
+      if (line[i] === ',') i++;
+    }
+  }
+  return parts;
+}
+
 /** Names match if exact or one is a prefix of the other (e.g. "Juan Pablo" matches "Juan Pablo Narchi"). */
 function namesMatch(nameA, nameB) {
   const a = norm(nameA);
@@ -55,7 +96,7 @@ function getAlreadyInFiltered(filteredPath) {
   const lines = content.split(/\r?\n/).filter((line) => line.trim());
   if (lines.length <= 1) return [];
   return lines.slice(1).map((line) => {
-    const parts = line.split(',').map((p) => p.replace(/^"|"$/g, '').replace(/""/g, '"').trim());
+    const parts = parseCsvLine(line).map((p) => p.replace(/^"|"$/g, '').replace(/""/g, '"').trim());
     return { companyName: parts[0] ?? '', fullName: parts[1] ?? '' };
   });
 }
@@ -125,7 +166,7 @@ async function main() {
     }
   } else {
     const persons = getPersonsFromAll();
-    console.log('Input: persons/all.csv →', persons.length, 'persons');
+    console.log('Input: persons/all.csv →', persons.length, 'persons (AI only, no Prospeo)');
     if (alreadyInFiltered.length) console.log('Already in filtered.csv:', alreadyInFiltered.length, 'entries');
 
     for (const { company_name: companyName, full_name: fullName } of persons) {
@@ -135,55 +176,67 @@ async function main() {
       }
       try {
         await sleep(DELAY_BETWEEN_COMPANIES_MS);
-        const personMatch = await findPersonByCompanyAndName(companyName, fullName);
-        if (!personMatch) {
-          console.log(`${companyName} / ${fullName}: not found in Prospeo`);
-          continue;
-        }
-        console.log(`${companyName} / ${fullName}: found in Prospeo`);
-
-        const { person, company } = await enrichPerson({
-          person_id: personMatch.person_id,
-          enrich_mobile: true,
-        });
-        const outboundMessage = await writeOutboundMessage({
+        const result = await writeOutboundMessage({
           companyName,
-          person,
-          company,
+          fullName,
           inputMode: INPUT_MODE,
         });
-        const row = toFilteredRow(companyName, person, outboundMessage);
+        const row = {
+          company_name: companyName,
+          full_name: fullName,
+          linkedin_url: result.linkedin_url ?? '',
+          outbound_message: result.message ?? '',
+        };
         filteredRows.push(row);
-        console.log(`${companyName} / ${person?.full_name} → outbound message written`);
+        console.log(`${companyName} / ${fullName} → outbound message + LinkedIn URL written`);
       } catch (err) {
         console.log(`${companyName} / ${fullName}: error – ${err.message}`);
       }
     }
   }
 
-  const newRowsCsv = filteredRows.map((row) => CSV_HEADERS.map((h) => csvCell(h, row[h])).join(',')).join('\n');
+  const isPersonsMode = INPUT_MODE === 'persons';
+  const headers = isPersonsMode ? PERSONS_CSV_HEADERS : CSV_HEADERS;
+  const cellFn = isPersonsMode ? personsCsvCell : csvCell;
+  const newRowsCsv = filteredRows.map((row) => headers.map((h) => cellFn(h, row[h])).join(',')).join('\n');
+
   let existingRowsCsv = '';
   if (fs.existsSync(filteredPath)) {
     const content = fs.readFileSync(filteredPath, 'utf-8');
     const lines = content.split(/\r?\n/).filter((line) => line.trim());
     if (lines.length > 1) {
-      const header = lines[0];
       const dataLines = lines.slice(1);
-      const hasOutboundColumn = header.includes('outbound_message');
-      existingRowsCsv = hasOutboundColumn
-        ? dataLines.join('\n')
-        : dataLines.map((line) => `${line},""`).join('\n');
+      if (isPersonsMode) {
+        existingRowsCsv = dataLines
+          .map((line) => {
+            const parts = parseCsvLine(line);
+            const company_name = parts[0] ?? '';
+            const full_name = parts[1] ?? '';
+            const linkedin_url = parts.length >= 4 ? (parts[2] ?? '') : (parts[5] ?? '');
+            const outbound_message = parts.length >= 4 ? (parts[3] ?? '') : (parts[7] ?? '');
+            const row = { company_name, full_name, linkedin_url, outbound_message };
+            return PERSONS_CSV_HEADERS.map((h) => personsCsvCell(h, row[h])).join(',');
+          })
+          .join('\n');
+      } else {
+        const header = lines[0];
+        const hasOutboundColumn = header.includes('outbound_message');
+        existingRowsCsv = hasOutboundColumn
+          ? dataLines.join('\n')
+          : dataLines.map((line) => `${line},""`).join('\n');
+      }
     }
   }
+
   fs.mkdirSync(path.dirname(filteredPath), { recursive: true });
   const csv =
-    CSV_HEADERS.join(',') +
+    headers.join(',') +
     '\n' +
     existingRowsCsv +
     (existingRowsCsv ? '\n' : '') +
     newRowsCsv;
   fs.writeFileSync(filteredPath, csv, 'utf-8');
-  console.log(`\nSaved ${filteredRows.length} decision makers to ${path.relative(process.cwd(), filteredPath)}${existingRowsCsv ? ' (appended)' : ''}`);
+  console.log(`\nSaved ${filteredRows.length} ${isPersonsMode ? 'persons' : 'decision makers'} to ${path.relative(process.cwd(), filteredPath)}${existingRowsCsv ? ' (appended)' : ''}`);
 }
 
 main();

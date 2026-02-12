@@ -17,10 +17,29 @@ const outboundMessageSchema = z.object({
   message: z.string().describe('The outbound message to send to the person'),
 });
 
+const personsOutboundSchema = z.object({
+  message: z.string().describe('The outbound message to send to the person'),
+  linkedin_url: z.string().describe('The LinkedIn profile URL of the person (found via web search; use web search to find it, must be a valid linkedin.com URL)'),
+});
+
 async function writeOutboundMessage(info) {
   const { inputMode } = info;
-  const prompt =
-    inputMode === 'persons' ? getPersonsOutboundPrompt(info) : getCompaniesOutboundPrompt(info);
+  const isPersons = inputMode === 'persons';
+  const prompt = isPersons ? getPersonsOutboundPrompt(info) : getCompaniesOutboundPrompt(info);
+
+  if (isPersons) {
+    const { output } = await generateText({
+      model: anthropic('claude-sonnet-4-5'),
+      tools: { webSearch: webSearchTool },
+      prompt,
+      output: Output.object({ schema: personsOutboundSchema }),
+      maxSteps: 5,
+    });
+    return {
+      message: (output?.message ?? '').trim(),
+      linkedin_url: (output?.linkedin_url ?? '').trim(),
+    };
+  }
 
   const { output } = await generateText({
     model: anthropic('claude-sonnet-4-5'),
@@ -29,7 +48,6 @@ async function writeOutboundMessage(info) {
     output: Output.object({ schema: outboundMessageSchema }),
     maxSteps: 5,
   });
-
   return output?.message?.trim() ?? '';
 }
 
