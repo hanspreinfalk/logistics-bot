@@ -1,0 +1,12 @@
+{
+  "type": "module",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.42",
+    "ai": "^6.0.81",
+    "dotenv": "^17.2.4"
+  }
+}
