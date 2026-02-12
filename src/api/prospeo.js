@@ -125,10 +125,7 @@ async function fetchPersonsAndSaveCsv(companyName, outputDir) {
   fs.mkdirSync(outputDir, { recursive: true });
   const csvPath = path.join(outputDir, 'persons.csv');
 
-  const escapeCsv = (v) => {
-    const s = String(v ?? '');
-    return `"${s.replace(/"/g, '""')}"`;
-  };
+  const escapeCsv = (v) => String(v ?? '');
   const csvHeaders = ['company_name', 'full_name', 'country', 'email', 'mobile', 'linkedin_url', 'current_job_title'];
   const csv = [
     csvHeaders.join(','),

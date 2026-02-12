@@ -8,8 +8,7 @@ import { selectDecisionMaker } from './api/bot.js';
 const CSV_HEADERS = ['company_name', 'full_name', 'country', 'email', 'mobile', 'linkedin_url', 'current_job_title'];
 
 function escapeCsv(v) {
-  const s = String(v ?? '');
-  return `"${s.replace(/"/g, '""')}"`;
+  return String(v ?? '');
 }
 
 function toFilteredRow(companyName, person) {
