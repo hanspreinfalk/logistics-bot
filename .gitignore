@@ -15,6 +15,6 @@ Thumbs.db
 *.swp
 *.swo
 
-# Optional: uncomment to ignore generated data
-# data/*/
+# Generated data
+data/
 # runs/

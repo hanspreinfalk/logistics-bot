@@ -58,9 +58,11 @@ async function main() {
       const companySlug = companyName.replace(/\s+/g, '-');
       const outputDir = path.join(dataDir, `${companySlug}-${datetime}`);
       const { persons, csvPath } = await fetchPersonsAndSaveCsv(companyName, outputDir);
-      console.log(`${companyName}: ${persons.length} persons → ${csvPath}`);
-
-      if (persons.length === 0) continue;
+      if (persons.length === 0) {
+        console.log(`${companyName}: not found`);
+        continue;
+      }
+      console.log(`${companyName}: ${persons.length} persons → ${path.relative(process.cwd(), csvPath)}`);
 
       const decisionMakerId = await selectDecisionMaker(companyName, persons);
       if (!decisionMakerId) {
@@ -76,7 +78,7 @@ async function main() {
       filteredRows.push(row);
       console.log(`${companyName}: decision maker ${person?.full_name} → enriched`);
     } catch (err) {
-      console.error(`${companyName}:`, err.message);
+      console.log(`${companyName}: not found`);
     }
   }
 
@@ -94,7 +96,7 @@ async function main() {
     (existingRowsCsv ? '\n' : '') +
     newRowsCsv;
   fs.writeFileSync(filteredPath, csv, 'utf-8');
-  console.log(`\nSaved ${filteredRows.length} decision makers to ${filteredPath}${existingRowsCsv ? ' (appended)' : ''}`);
+  console.log(`\nSaved ${filteredRows.length} decision makers to ${path.relative(process.cwd(), filteredPath)}${existingRowsCsv ? ' (appended)' : ''}`);
 }
 
 main();
