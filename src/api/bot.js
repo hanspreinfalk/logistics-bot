@@ -30,7 +30,7 @@ async function writeOutboundMessage(info) {
 
   if (isPersons) {
     const { output } = await generateText({
-      model: anthropic('claude-sonnet-4-5'),
+      model: anthropic('claude-haiku-4-5'),
       tools: { webSearch: webSearchTool },
       prompt,
       output: Output.object({ schema: personsOutboundSchema }),
@@ -44,7 +44,7 @@ async function writeOutboundMessage(info) {
   }
 
   const { output } = await generateText({
-    model: anthropic('claude-sonnet-4-5'),
+    model: anthropic('claude-haiku-4-5'),
     tools: { webSearch: webSearchTool },
     prompt,
     output: Output.object({ schema: outboundMessageSchema }),
@@ -70,7 +70,7 @@ People:
 ${list}`;
 
   const { output } = await generateText({
-    model: anthropic('claude-sonnet-4-5'),
+    model: anthropic('claude-haiku-4-5'),
     output: Output.object({ schema: decisionMakerSchema }),
     prompt,
   });

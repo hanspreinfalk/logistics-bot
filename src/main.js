@@ -178,9 +178,25 @@ async function main() {
       }
     }
   } else {
-    const persons = getPersonsFromAll();
+    let persons = getPersonsFromAll();
     console.log('Input: persons/all.csv →', persons.length, 'persons (AI only, no Prospeo)');
     if (alreadyInFiltered.length) console.log('Already in filtered.csv:', alreadyInFiltered.length, 'entries');
+
+    // If persons/filtered.csv exists, start from the next person after the last one in it
+    if (fs.existsSync(filteredPath) && alreadyInFiltered.length > 0) {
+      const lastInFiltered = alreadyInFiltered[alreadyInFiltered.length - 1];
+      const idx = persons.findIndex(
+        (p) =>
+          norm(p.company_name) === norm(lastInFiltered.companyName) &&
+          namesMatch(p.full_name, lastInFiltered.fullName),
+      );
+      if (idx >= 0) {
+        persons = persons.slice(idx + 1);
+        console.log(
+          `Resuming from after "${lastInFiltered.companyName}" / ${lastInFiltered.fullName} (${persons.length} persons remaining)`,
+        );
+      }
+    }
 
     for (const { company_name: companyName, full_name: fullName, position } of persons) {
       if (isPersonAlreadyInFiltered(companyName, fullName, alreadyInFiltered)) {
