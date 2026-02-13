@@ -37,9 +37,20 @@ function toFilteredRow(companyName, person, outboundMessage = '') {
 }
 
 const DELAY_BETWEEN_COMPANIES_MS = 2500;
+/** Max time to wait for AI + web search per person; avoids hanging forever if API or tool stalls. */
+const PERSONS_OUTBOUND_TIMEOUT_MS = 120_000;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`${label || 'Operation'} timed out after ${ms / 1000}s`)), ms),
+    ),
+  ]);
 }
 
 function personKey(companyName, fullName) {
@@ -205,12 +216,17 @@ async function main() {
       }
       try {
         await sleep(DELAY_BETWEEN_COMPANIES_MS);
-        const result = await writeOutboundMessage({
-          companyName,
-          fullName,
-          position,
-          inputMode: INPUT_MODE,
-        });
+        console.log(`Processing ${companyName} / ${fullName}...`);
+        const result = await withTimeout(
+          writeOutboundMessage({
+            companyName,
+            fullName,
+            position,
+            inputMode: INPUT_MODE,
+          }),
+          PERSONS_OUTBOUND_TIMEOUT_MS,
+          `Outbound message for ${companyName} / ${fullName}`,
+        );
         const positionToUse = (result.position ?? '').trim();
         const linkedinUrl = (result.linkedin_url ?? '').trim();
         if (!positionToUse) {
